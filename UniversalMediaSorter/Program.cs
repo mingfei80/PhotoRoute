@@ -1,12 +1,7 @@
-using System;
-using System.IO;
-using System.Linq;
-using System.Threading.Tasks;
-using System.Collections.Generic;
 using MetadataExtractor;
-using Microsoft.Extensions.Configuration;
 using MetadataExtractor.Formats.Exif;
 using MetadataExtractor.Formats.QuickTime;
+using Microsoft.Extensions.Configuration;
 
 namespace UniversalMediaSorter
 {
