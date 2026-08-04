@@ -1,18 +1,12 @@
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text.Json;
-using System.Threading.Tasks;
-using System.Threading;
 
 namespace UniversalMediaSorter.Services
 {
     /// <summary>
     /// Simple reverse geocoder using Nominatim (OpenStreetMap) with a file-backed cache.
     /// </summary>
-    public class ReverseGeocoder : IDisposable
+    public class ReverseGeocoder : IReverseGeocoder, IDisposable
     {
         private readonly HttpClient _http;
         private readonly string _cachePath;

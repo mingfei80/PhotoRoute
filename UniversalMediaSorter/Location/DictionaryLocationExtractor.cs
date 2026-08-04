@@ -45,6 +45,17 @@ namespace UniversalMediaSorter.Location
             // Scan all directories for GPS-related keys
             foreach (var dir in metadataDirs)
             {
+                // First priority: raw GPS coordinates extracted by MetadataExtractorReader
+                if (dir.TryGetValue("__RawGPSLatitude", out var rawLat) && 
+                    dir.TryGetValue("__RawGPSLongitude", out var rawLon))
+                {
+                    if (double.TryParse(rawLat, out var lat) && double.TryParse(rawLon, out var lon))
+                    {
+                        return (true, lat, lon);
+                    }
+                }
+
+                // Second priority: GPS Location tag (usually ISO 6709 format or comma-separated)
                 foreach (var key in GpsKeys)
                 {
                     if (dir.TryGetValue(key, out var value) && !string.IsNullOrWhiteSpace(value))
@@ -54,10 +65,16 @@ namespace UniversalMediaSorter.Location
                         {
                             return (true, lat, lon);
                         }
+
+                        // Try comma-separated format (e.g., "50.7877, -4.4669")
+                        if (TryParseCommaSeparated(value, out lat, out lon))
+                        {
+                            return (true, lat, lon);
+                        }
                     }
                 }
 
-                // Try explicit latitude/longitude pairs
+                // Third priority: explicit latitude/longitude pairs
                 if (dir.TryGetValue("GPSLatitude", out var latStr) && 
                     dir.TryGetValue("GPSLongitude", out var lonStr))
                 {
@@ -74,7 +91,7 @@ namespace UniversalMediaSorter.Location
                     }
                 }
 
-                // Try simple "Latitude" and "Longitude" keys
+                // Fourth priority: simple "Latitude" and "Longitude" keys
                 if (dir.TryGetValue("Latitude", out var latStr2) && 
                     dir.TryGetValue("Longitude", out var lonStr2))
                 {
@@ -117,6 +134,23 @@ namespace UniversalMediaSorter.Location
             }
 
             return (false, DateTime.MinValue);
+        }
+
+        private static bool TryParseCommaSeparated(string s, out double lat, out double lon)
+        {
+            lat = 0;
+            lon = 0;
+
+            if (string.IsNullOrWhiteSpace(s))
+                return false;
+
+            // Match comma-separated format: "50.7877, -4.4669" or similar
+            var parts = s.Split(',');
+            if (parts.Length != 2)
+                return false;
+
+            return double.TryParse(parts[0].Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out lat) &&
+                   double.TryParse(parts[1].Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out lon);
         }
 
         private static bool TryParseIso6709(string s, out double lat, out double lon)
