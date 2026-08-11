@@ -25,12 +25,17 @@ namespace UniversalMediaSorter.Location
 
         private static readonly string[] DateKeys = new[]
         {
+            // Photos (EXIF)
             "DateTimeOriginal",
             "Date/Time Original",
+            // MOV (iPhone/Apple) – includes timezone offset, most accurate for video
+            "com.apple.quicktime.creationdate",
             "CreationDate",
             "Creation Date",
             "CreateDate",
             "Create Date",
+            // MP4 / QuickTime Movie Header – stored as UTC
+            "Created",
             "ModifyDate",
             "Modify Date",
             "DateTime",
@@ -214,12 +219,29 @@ namespace UniversalMediaSorter.Location
             if (string.IsNullOrWhiteSpace(s))
                 return false;
 
-            // Try standard DateTime parsing
-            if (DateTime.TryParse(s, CultureInfo.InvariantCulture, DateTimeStyles.None, out result))
+            // Strip any trailing timezone name in brackets, e.g. "2026-05-24T16:00:00+08:00 [Asia/Singapore]"
+            var trimmed = Regex.Replace(s.Trim(), @"\s*\[.*?\]\s*$", string.Empty);
+
+            // ISO 8601 with timezone offset (com.apple.quicktime.creationdate: "2026-05-24T16:00:00+08:00")
+            // Parse as DateTimeOffset so the offset is respected, then convert to UTC for consistent handling.
+            if (DateTimeOffset.TryParse(trimmed, CultureInfo.InvariantCulture, DateTimeStyles.None, out var dto))
+            {
+                result = dto.UtcDateTime;
+                return true;
+            }
+
+            // Common EXIF format: "2026:06:29 21:03:12" (local, no offset)
+            if (DateTime.TryParseExact(trimmed, "yyyy:MM:dd HH:mm:ss", CultureInfo.InvariantCulture, DateTimeStyles.None, out result))
                 return true;
 
-            // Try common EXIF format: "2026:06:29 21:03:12"
-            if (DateTime.TryParseExact(s, "yyyy:MM:dd HH:mm:ss", CultureInfo.InvariantCulture, DateTimeStyles.None, out result))
+            // QuickTime/MP4 "Created" UTC format: "Sat Nov 15 06:04:32 2025"
+            if (DateTime.TryParseExact(trimmed, "ddd MMM dd HH:mm:ss yyyy",
+                    CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out result))
+                return true;
+
+            // QuickTime/MP4 single-digit day variant: "Sat Nov  5 06:04:32 2025"
+            if (DateTime.TryParseExact(trimmed, "ddd MMM  d HH:mm:ss yyyy",
+                    CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out result))
                 return true;
 
             return false;
